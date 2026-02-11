@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Health Weather Metrics</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #0f1117;
+      --bg-card: #1a1d27;
+      --bg-card-hover: #1e2230;
+      --text-primary: #e4e6ef;
+      --text-secondary: #8b8fa3;
+      --accent-blue: #4a9eff;
+      --accent-green: #34d399;
+      --accent-yellow: #fbbf24;
+      --accent-red: #f87171;
+      --accent-purple: #a78bfa;
+      --accent-orange: #fb923c;
+      --border-color: #2a2e3d;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.3);
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* Header */
+    .header {
+      padding: 24px 32px;
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .header .location {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    /* Dashboard Grid */
+    .dashboard {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      padding: 0 32px 32px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .card-pressure { grid-column: 1 / -1; }
+
+    .card-top {
+      height: 3px;
+      flex-shrink: 0;
+    }
+    .card-pressure .card-top { background: linear-gradient(90deg, var(--accent-blue), #7dd3fc); }
+    .card-moon .card-top { background: linear-gradient(90deg, var(--accent-purple), #c4b5fd); }
+    .card-solar .card-top { background: linear-gradient(90deg, var(--accent-orange), var(--accent-yellow)); }
+
+    .card-header {
+      padding: 16px 20px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .card-header h2 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+    }
+
+    .card-body {
+      padding: 16px 20px 20px;
+      flex: 1;
+      position: relative;
+      min-height: 80px;
+    }
+
+    .card-footer {
+      padding: 12px 20px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    /* Chart container */
+    .chart-wrap {
+      position: relative;
+      height: 260px;
+    }
+
+    /* Trend badge */
+    .trend { font-weight: 600; }
+    .trend.rising { color: var(--accent-green); }
+    .trend.falling { color: var(--accent-red); }
+    .trend.steady { color: var(--text-secondary); }
+
+    /* Moon card */
+    .moon-display {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .moon-emoji {
+      font-size: 3.5rem;
+      line-height: 1;
+    }
+    .moon-info { flex: 1; }
+    .moon-sign-name {
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+    .moon-sign-symbol {
+      color: var(--accent-purple);
+      margin-right: 6px;
+    }
+    .moon-details {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+    .moon-details span strong {
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-weight: 500;
+    }
+
+    /* Solar card */
+    .solar-summary {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .solar-stat {
+      background: rgba(251,146,60,0.08);
+      border: 1px solid rgba(251,146,60,0.15);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.8rem;
+    }
+    .solar-stat .val {
+      font-size: 1.2rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--accent-orange);
+      display: block;
+    }
+
+    .flare-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+    .flare-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.82rem;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .flare-item:last-child { border-bottom: none; }
+
+    .flare-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.78rem;
+      min-width: 48px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .flare-badge.class-B { background: #374151; color: #9ca3af; }
+    .flare-badge.class-C { background: rgba(52,211,153,0.15); color: var(--accent-green); }
+    .flare-badge.class-M { background: rgba(251,191,36,0.15); color: var(--accent-yellow); }
+    .flare-badge.class-X { background: rgba(248,113,113,0.15); color: var(--accent-red); }
+
+    .flare-time {
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      flex-shrink: 0;
+    }
+    .flare-source {
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+    }
+    .no-flares {
+      color: var(--text-secondary);
+      font-style: italic;
+      padding: 20px 0;
+      text-align: center;
+    }
+
+    /* Loading skeleton */
+    .card.loading .card-body-content { visibility: hidden; }
+    .card.loading .card-body::after {
+      content: '';
+      position: absolute;
+      inset: 16px 20px;
+      border-radius: 8px;
+      background: linear-gradient(90deg, var(--bg-card) 25%, #252936 50%, var(--bg-card) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Error state */
+    .error-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 20px;
+      text-align: center;
+    }
+    .error-state .error-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(248,113,113,0.12);
+      color: var(--accent-red);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+    .error-state .error-msg {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+    }
+    .retry-btn {
+      margin-top: 4px;
+      padding: 6px 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--accent-blue);
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-family: var(--font-sans);
+    }
+    .retry-btn:hover { background: rgba(74,158,255,0.08); }
+
+    /* Footer */
+    .footer {
+      padding: 16px 32px 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .footer button {
+      padding: 6px 18px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      transition: background 0.15s;
+    }
+    .footer button:hover { background: var(--bg-card-hover); }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header { padding: 20px 16px; }
+      .dashboard {
+        grid-template-columns: 1fr;
+        padding: 0 16px 16px;
+      }
+      .card-pressure { grid-column: 1; }
+      .footer { padding: 12px 16px 20px; }
+      .chart-wrap { height: 220px; }
+    }
+    @media (max-width: 480px) {
+      .header h1 { font-size: 1.2rem; }
+      .moon-emoji { font-size: 2.5rem; }
+      .moon-sign-name { font-size: 1.1rem; }
+    }
+
+    /* Scrollbar for flare list */
+    .flare-list::-webkit-scrollbar { width: 4px; }
+    .flare-list::-webkit-scrollbar-track { background: transparent; }
+    .flare-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <h1>Health Weather Metrics</h1>
+    <span class="location" id="location-display">Detecting location...</span>
+  </header>
+
+  <main class="dashboard">
+    <!-- Barometric Pressure -->
+    <section class="card card-pressure loading" id="card-pressure">
+      <div class="card-top"></div>
+      <div class="card-header">
+        <h2>Barometric Pressure &mdash; 3 Day Trend</h2>
+      </div>
+      <div class="card-body">
+        <div class="card-body-content">
+          <div class="chart-wrap">
+            <canvas id="pressure-chart"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <span id="current-pressure">Current: -- hPa</span>
+        <span id="pressure-trend" class="trend">Trend: --</span>
+      </div>
+    </section>
+
+    <!-- Moon Sign -->
+    <section class="card card-moon loading" id="card-moon">
+      <div class="card-top"></div>
+      <div class="card-header">
+        <h2>Current Moon</h2>
+      </div>
+      <div class="card-body">
+        <div class="card-body-content">
+          <div class="moon-display">
+            <div class="moon-emoji" id="moon-emoji"></div>
+            <div class="moon-info">
+              <div class="moon-sign-name" id="moon-sign-name"></div>
+              <div class="moon-details" id="moon-details"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Solar Flare Activity -->
+    <section class="card card-solar loading" id="card-solar">
+      <div class="card-top"></div>
+      <div class="card-header">
+        <h2>Solar Flare Activity</h2>
+      </div>
+      <div class="card-body">
+        <div class="card-body-content">
+          <div class="solar-summary" id="solar-summary"></div>
+          <ul class="flare-list" id="flare-list"></ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>Last updated: <span id="last-updated">--</span></span>
+    <button id="refresh-btn">Refresh</button>
+  </footer>
+
+  <!-- CDN Dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/date-fns@3.6.0/cdn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+  <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
+
+  <script>
+  (function() {
+    'use strict';
+
+    // ==========================================
+    // CONFIGURATION
+    // ==========================================
+    var CONFIG = {
+      GEOLOCATION_URL: 'https://ipapi.co/json/',
+      OPEN_METEO_BASE: 'https://api.open-meteo.com/v1/forecast',
+      NASA_DONKI_BASE: 'https://api.nasa.gov/DONKI/FLR',
+      NASA_API_KEY: 'DEMO_KEY',
+      PAST_DAYS: 3,
+      SOLAR_LOOKBACK_DAYS: 7,
+      DEFAULT_LOCATION: { lat: 40.7128, lon: -74.006, city: 'New York', region: 'NY' }
+    };
+
+    var ZODIAC = [
+      { name: 'Aries',       symbol: '\u2648' },
+      { name: 'Taurus',      symbol: '\u2649' },
+      { name: 'Gemini',      symbol: '\u264A' },
+      { name: 'Cancer',      symbol: '\u264B' },
+      { name: 'Leo',         symbol: '\u264C' },
+      { name: 'Virgo',       symbol: '\u264D' },
+      { name: 'Libra',       symbol: '\u264E' },
+      { name: 'Scorpio',     symbol: '\u264F' },
+      { name: 'Sagittarius', symbol: '\u2650' },
+      { name: 'Capricorn',   symbol: '\u2651' },
+      { name: 'Aquarius',    symbol: '\u2652' },
+      { name: 'Pisces',      symbol: '\u2653' }
+    ];
+
+    // ==========================================
+    // STATE
+    // ==========================================
+    var pressureChart = null;
+
+    // ==========================================
+    // UTILITIES
+    // ==========================================
+    function fetchJSON(url, timeoutMs) {
+      timeoutMs = timeoutMs || 10000;
+      var controller = new AbortController();
+      var timer = setTimeout(function() { controller.abort(); }, timeoutMs);
+      return fetch(url, { signal: controller.signal })
+        .then(function(res) {
+          clearTimeout(timer);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        });
+    }
+
+    function setLoading(cardId) {
+      var card = document.getElementById(cardId);
+      card.classList.add('loading');
+      card.classList.remove('error');
+    }
+
+    function clearLoading(cardId) {
+      document.getElementById(cardId).classList.remove('loading');
+    }
+
+    function showError(cardId, message) {
+      var card = document.getElementById(cardId);
+      card.classList.remove('loading');
+      var body = card.querySelector('.card-body-content');
+      body.innerHTML =
+        '<div class="error-state">' +
+          '<div class="error-icon">!</div>' +
+          '<div class="error-msg">' + message + '</div>' +
+          '<button class="retry-btn" onclick="window.__refresh()">Retry</button>' +
+        '</div>';
+    }
+
+    function formatDateTime(dateStr) {
+      var d = new Date(dateStr);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+        ', ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+
+    function formatDateISO(date) {
+      var y = date.getFullYear();
+      var m = String(date.getMonth() + 1).padStart(2, '0');
+      var d = String(date.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + d;
+    }
+
+    // ==========================================
+    // GEOLOCATION
+    // ==========================================
+    function detectLocation() {
+      return fetchJSON(CONFIG.GEOLOCATION_URL)
+        .then(function(data) {
+          return {
+            lat: data.latitude,
+            lon: data.longitude,
+            city: data.city,
+            region: data.region
+          };
+        })
+        .catch(function() {
+          // Fallback: try browser geolocation
+          return new Promise(function(resolve) {
+            if (!navigator.geolocation) {
+              resolve(CONFIG.DEFAULT_LOCATION);
+              return;
+            }
+            navigator.geolocation.getCurrentPosition(
+              function(pos) {
+                resolve({
+                  lat: pos.coords.latitude,
+                  lon: pos.coords.longitude,
+                  city: 'Your Location',
+                  region: ''
+                });
+              },
+              function() {
+                resolve(CONFIG.DEFAULT_LOCATION);
+              },
+              { timeout: 5000 }
+            );
+          });
+        });
+    }
+
+    // ==========================================
+    // BAROMETRIC PRESSURE
+    // ==========================================
+    function fetchPressure(lat, lon) {
+      var url = CONFIG.OPEN_METEO_BASE +
+        '?latitude=' + lat +
+        '&longitude=' + lon +
+        '&hourly=surface_pressure' +
+        '&past_days=' + CONFIG.PAST_DAYS;
+      return fetchJSON(url).then(function(data) {
+        var times = [];
+        var pressures = [];
+        for (var i = 0; i < data.hourly.time.length; i++) {
+          if (data.hourly.surface_pressure[i] != null) {
+            times.push(data.hourly.time[i]);
+            pressures.push(data.hourly.surface_pressure[i]);
+          }
+        }
+        return { times: times, pressures: pressures };
+      });
+    }
+
+    function calculateTrend(pressures) {
+      if (pressures.length < 12) return { direction: 'steady', arrow: '\u2192', delta: 0 };
+      var recent = pressures.slice(-6);
+      var prior = pressures.slice(-12, -6);
+      var avgRecent = recent.reduce(function(a, b) { return a + b; }, 0) / recent.length;
+      var avgPrior = prior.reduce(function(a, b) { return a + b; }, 0) / prior.length;
+      var delta = avgRecent - avgPrior;
+      if (delta > 1) return { direction: 'rising', arrow: '\u2191', delta: delta };
+      if (delta < -1) return { direction: 'falling', arrow: '\u2193', delta: delta };
+      return { direction: 'steady', arrow: '\u2192', delta: delta };
+    }
+
+    function renderPressure(data) {
+      clearLoading('card-pressure');
+      if (pressureChart) { pressureChart.destroy(); }
+
+      var ctx = document.getElementById('pressure-chart').getContext('2d');
+      var gradient = ctx.createLinearGradient(0, 0, 0, 260);
+      gradient.addColorStop(0, 'rgba(74, 158, 255, 0.15)');
+      gradient.addColorStop(1, 'rgba(74, 158, 255, 0)');
+
+      pressureChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.times.map(function(t) { return new Date(t); }),
+          datasets: [{
+            label: 'Surface Pressure (hPa)',
+            data: data.pressures,
+            borderColor: '#4a9eff',
+            backgroundColor: gradient,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 0,
+            pointHitRadius: 10,
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1a1d27',
+              borderColor: '#2a2e3d',
+              borderWidth: 1,
+              titleColor: '#8b8fa3',
+              bodyColor: '#e4e6ef',
+              bodyFont: { family: "'SF Mono', monospace" },
+              padding: 10,
+              callbacks: {
+                label: function(ctx) {
+                  return ctx.parsed.y.toFixed(1) + ' hPa';
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              type: 'time',
+              time: { unit: 'hour', displayFormats: { hour: 'MMM d, ha' }, tooltipFormat: 'MMM d, h:mm a' },
+              ticks: { color: '#8b8fa3', maxRotation: 0, autoSkipPadding: 30, font: { size: 11 } },
+              grid: { color: 'rgba(42, 46, 61, 0.5)' }
+            },
+            y: {
+              ticks: { color: '#8b8fa3', font: { size: 11, family: "'SF Mono', monospace" } },
+              grid: { color: 'rgba(42, 46, 61, 0.5)' }
+            }
+          }
+        }
+      });
+
+      // Current value
+      var latest = data.pressures[data.pressures.length - 1];
+      document.getElementById('current-pressure').textContent = 'Current: ' + latest.toFixed(1) + ' hPa';
+
+      // Trend
+      var trend = calculateTrend(data.pressures);
+      var trendEl = document.getElementById('pressure-trend');
+      trendEl.textContent = 'Trend: ' + trend.arrow + ' ' + trend.direction.charAt(0).toUpperCase() + trend.direction.slice(1) +
+        ' (' + (trend.delta > 0 ? '+' : '') + trend.delta.toFixed(1) + ' hPa)';
+      trendEl.className = 'trend ' + trend.direction;
+    }
+
+    // ==========================================
+    // MOON SIGN
+    // ==========================================
+    function getMoonPhaseName(angle) {
+      if (angle < 22.5 || angle >= 337.5) return 'New Moon';
+      if (angle < 67.5) return 'Waxing Crescent';
+      if (angle < 112.5) return 'First Quarter';
+      if (angle < 157.5) return 'Waxing Gibbous';
+      if (angle < 202.5) return 'Full Moon';
+      if (angle < 247.5) return 'Waning Gibbous';
+      if (angle < 292.5) return 'Last Quarter';
+      return 'Waning Crescent';
+    }
+
+    function getMoonPhaseEmoji(angle) {
+      if (angle < 22.5 || angle >= 337.5) return '\uD83C\uDF11';
+      if (angle < 67.5)  return '\uD83C\uDF12';
+      if (angle < 112.5) return '\uD83C\uDF13';
+      if (angle < 157.5) return '\uD83C\uDF14';
+      if (angle < 202.5) return '\uD83C\uDF15';
+      if (angle < 247.5) return '\uD83C\uDF16';
+      if (angle < 292.5) return '\uD83C\uDF17';
+      return '\uD83C\uDF18';
+    }
+
+    function calculateMoon() {
+      var now = new Date();
+      var moon = Astronomy.EclipticGeoMoon(now);
+      var lon = moon.lon;
+      if (lon < 0) lon += 360;
+      var signIndex = Math.floor(lon / 30) % 12;
+      var sign = ZODIAC[signIndex];
+
+      var phaseAngle = Astronomy.MoonPhase(now);
+      var phaseName = getMoonPhaseName(phaseAngle);
+      var emoji = getMoonPhaseEmoji(phaseAngle);
+
+      // Illumination from phase angle
+      var illum = (1 - Math.cos(phaseAngle * Math.PI / 180)) / 2 * 100;
+
+      return {
+        signName: sign.name,
+        signSymbol: sign.symbol,
+        phaseName: phaseName,
+        emoji: emoji,
+        illumination: illum,
+        longitude: lon,
+        degrees: (lon % 30).toFixed(1)
+      };
+    }
+
+    function renderMoon(data) {
+      clearLoading('card-moon');
+      document.getElementById('moon-emoji').textContent = data.emoji;
+      document.getElementById('moon-sign-name').innerHTML =
+        '<span class="moon-sign-symbol">' + data.signSymbol + '</span>' +
+        'Moon in ' + data.signName;
+      document.getElementById('moon-details').innerHTML =
+        '<span>Phase: <strong>' + data.phaseName + '</strong></span>' +
+        '<span>Illumination: <strong>' + data.illumination.toFixed(0) + '%</strong></span>' +
+        '<span>Ecliptic longitude: <strong>' + data.longitude.toFixed(1) + '\u00B0</strong> (' + data.degrees + '\u00B0 ' + data.signName + ')</span>';
+    }
+
+    // ==========================================
+    // SOLAR FLARES
+    // ==========================================
+    function fetchSolarFlares() {
+      var end = new Date();
+      var start = new Date();
+      start.setDate(start.getDate() - CONFIG.SOLAR_LOOKBACK_DAYS);
+      var url = CONFIG.NASA_DONKI_BASE +
+        '?startDate=' + formatDateISO(start) +
+        '&endDate=' + formatDateISO(end) +
+        '&api_key=' + CONFIG.NASA_API_KEY;
+      return fetchJSON(url).then(function(data) {
+        if (!Array.isArray(data)) return [];
+        data.sort(function(a, b) {
+          return new Date(b.beginTime) - new Date(a.beginTime);
+        });
+        return data;
+      });
+    }
+
+    function flareClassLetter(classType) {
+      if (!classType) return 'B';
+      var c = classType.charAt(0).toUpperCase();
+      if (['B', 'C', 'M', 'X'].indexOf(c) !== -1) return c;
+      return 'B';
+    }
+
+    function strongestFlare(flares) {
+      var order = { B: 0, C: 1, M: 2, X: 3 };
+      var best = null;
+      var bestScore = -1;
+      for (var i = 0; i < flares.length; i++) {
+        var cls = flares[i].classType || '';
+        var letter = flareClassLetter(cls);
+        var num = parseFloat(cls.substring(1)) || 0;
+        var score = (order[letter] || 0) * 100 + num;
+        if (score > bestScore) {
+          bestScore = score;
+          best = cls;
+        }
+      }
+      return best || 'None';
+    }
+
+    function renderSolar(flares) {
+      clearLoading('card-solar');
+
+      var summaryEl = document.getElementById('solar-summary');
+      summaryEl.innerHTML =
+        '<div class="solar-stat"><span class="val">' + flares.length + '</span>Events (last 7 days)</div>' +
+        '<div class="solar-stat"><span class="val">' + strongestFlare(flares) + '</span>Strongest class</div>';
+
+      var listEl = document.getElementById('flare-list');
+      if (flares.length === 0) {
+        listEl.innerHTML = '<li class="no-flares">No significant solar flare activity in the last 7 days.</li>';
+        return;
+      }
+
+      var html = '';
+      var limit = Math.min(flares.length, 15);
+      for (var i = 0; i < limit; i++) {
+        var f = flares[i];
+        var letter = flareClassLetter(f.classType);
+        html +=
+          '<li class="flare-item">' +
+            '<span class="flare-badge class-' + letter + '">' + (f.classType || '--') + '</span>' +
+            '<span class="flare-time">' + formatDateTime(f.beginTime) + '</span>' +
+            (f.sourceLocation ? '<span class="flare-source">' + f.sourceLocation + '</span>' : '') +
+          '</li>';
+      }
+      if (flares.length > limit) {
+        html += '<li class="flare-item" style="justify-content:center; color: var(--text-secondary); font-size:0.78rem;">+ ' +
+          (flares.length - limit) + ' more</li>';
+      }
+      listEl.innerHTML = html;
+    }
+
+    // ==========================================
+    // INITIALIZATION
+    // ==========================================
+    function init() {
+      setLoading('card-pressure');
+      setLoading('card-moon');
+      setLoading('card-solar');
+
+      // Moon is synchronous - render immediately
+      try {
+        var moonData = calculateMoon();
+        renderMoon(moonData);
+      } catch (e) {
+        showError('card-moon', 'Could not calculate moon data.');
+      }
+
+      // Detect location, then fetch pressure + solar in parallel
+      detectLocation().then(function(loc) {
+        var displayName = loc.city;
+        if (loc.region) displayName += ', ' + loc.region;
+        document.getElementById('location-display').textContent = displayName;
+
+        var pressurePromise = fetchPressure(loc.lat, loc.lon)
+          .then(renderPressure)
+          .catch(function(err) {
+            showError('card-pressure', 'Failed to load pressure data.');
+          });
+
+        var solarPromise = fetchSolarFlares()
+          .then(renderSolar)
+          .catch(function(err) {
+            showError('card-solar', 'Failed to load solar flare data.');
+          });
+
+        return Promise.all([pressurePromise, solarPromise]);
+      }).then(function() {
+        document.getElementById('last-updated').textContent =
+          new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      });
+    }
+
+    // Expose refresh for retry buttons
+    window.__refresh = init;
+
+    document.getElementById('refresh-btn').addEventListener('click', init);
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+
+  })();
+  </script>
+</body>
+</html>
