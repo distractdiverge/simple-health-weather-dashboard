@@ -54,6 +54,116 @@
       font-family: var(--font-mono);
     }
 
+    /* Location switcher — inline in header */
+    .location-switcher {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+    /* Collapsed: the clickable label */
+    .loc-label {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .loc-label:hover {
+      border-color: var(--border-color);
+      background: var(--bg-card);
+    }
+    /* Expanded: the edit popover */
+    .loc-editor {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 100;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+      padding: 10px 12px;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 320px;
+    }
+    .loc-editor.open {
+      display: flex;
+    }
+    .loc-editor-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .loc-editor input[type="text"] {
+      flex: 1;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 7px 10px;
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 0.84rem;
+      outline: none;
+      transition: border-color 0.15s;
+      min-width: 0;
+    }
+    .loc-editor input[type="text"]:focus {
+      border-color: var(--accent-blue);
+    }
+    .loc-editor input[type="text"]::placeholder {
+      color: #555a6e;
+    }
+    .loc-editor-btn {
+      padding: 7px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--accent-blue);
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+    .loc-editor-btn:hover { opacity: 0.85; }
+    .loc-editor-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .loc-editor-footer label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .loc-editor-footer input[type="checkbox"] {
+      accent-color: var(--accent-blue);
+      width: 13px;
+      height: 13px;
+      cursor: pointer;
+    }
+    .loc-error {
+      font-size: 0.75rem;
+      color: var(--accent-red);
+    }
+
+    @media (max-width: 480px) {
+      .loc-editor { min-width: 260px; }
+    }
+
     /* Dashboard Grid */
     .dashboard {
       display: grid;
@@ -341,7 +451,22 @@
 
   <header class="header">
     <h1>Health Weather Metrics</h1>
-    <span class="location" id="location-display">Detecting location...</span>
+    <div class="location-switcher" id="location-switcher">
+      <span class="loc-label" id="loc-label">Detecting location...</span>
+      <div class="loc-editor" id="loc-editor">
+        <div class="loc-editor-row">
+          <input type="text" id="location-input" placeholder="City name or lat, lon">
+          <button class="loc-editor-btn" id="location-go-btn">Go</button>
+        </div>
+        <div class="loc-editor-footer">
+          <label>
+            <input type="checkbox" id="auto-detect-toggle" checked>
+            Auto-detect on load
+          </label>
+          <span class="loc-error" id="location-error"></span>
+        </div>
+      </div>
+    </div>
   </header>
 
   <main class="dashboard">
@@ -418,12 +543,14 @@
     // ==========================================
     var CONFIG = {
       GEOLOCATION_URL: 'https://ipapi.co/json/',
+      GEOCODING_URL: 'https://geocoding-api.open-meteo.com/v1/search',
       OPEN_METEO_BASE: 'https://api.open-meteo.com/v1/forecast',
       NASA_DONKI_BASE: 'https://api.nasa.gov/DONKI/FLR',
       NASA_API_KEY: 'DEMO_KEY',
       PAST_DAYS: 3,
       SOLAR_LOOKBACK_DAYS: 7,
-      DEFAULT_LOCATION: { lat: 40.7128, lon: -74.006, city: 'New York', region: 'NY' }
+      DEFAULT_LOCATION: { lat: 40.7128, lon: -74.006, city: 'New York', region: 'NY' },
+      STORAGE_KEY: 'hwm_location_prefs'
     };
 
     var ZODIAC = [
@@ -445,6 +572,17 @@
     // STATE
     // ==========================================
     var pressureChart = null;
+
+    // ==========================================
+    // DOM REFERENCES
+    // ==========================================
+    var locSwitcher = document.getElementById('location-switcher');
+    var locLabel = document.getElementById('loc-label');
+    var locEditor = document.getElementById('loc-editor');
+    var autoDetectToggle = document.getElementById('auto-detect-toggle');
+    var locationInput = document.getElementById('location-input');
+    var locationGoBtn = document.getElementById('location-go-btn');
+    var locationError = document.getElementById('location-error');
 
     // ==========================================
     // UTILITIES
@@ -497,9 +635,24 @@
     }
 
     // ==========================================
+    // LOCATION PREFERENCES (localStorage)
+    // ==========================================
+    function savePrefs(prefs) {
+      try { localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(prefs)); } catch (e) {}
+    }
+
+    function loadPrefs() {
+      try {
+        var raw = localStorage.getItem(CONFIG.STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {}
+      return null;
+    }
+
+    // ==========================================
     // GEOLOCATION
     // ==========================================
-    function detectLocation() {
+    function detectLocationAuto() {
       return fetchJSON(CONFIG.GEOLOCATION_URL)
         .then(function(data) {
           return {
@@ -510,7 +663,6 @@
           };
         })
         .catch(function() {
-          // Fallback: try browser geolocation
           return new Promise(function(resolve) {
             if (!navigator.geolocation) {
               resolve(CONFIG.DEFAULT_LOCATION);
@@ -532,6 +684,61 @@
             );
           });
         });
+    }
+
+    function geocodeCity(query) {
+      // Check if the input looks like coordinates (e.g. "45.5, -122.6")
+      var coordMatch = query.match(/^\s*(-?\d+\.?\d*)\s*[,\s]\s*(-?\d+\.?\d*)\s*$/);
+      if (coordMatch) {
+        var lat = parseFloat(coordMatch[1]);
+        var lon = parseFloat(coordMatch[2]);
+        if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+          return Promise.resolve({
+            lat: lat,
+            lon: lon,
+            city: lat.toFixed(2) + ', ' + lon.toFixed(2),
+            region: ''
+          });
+        }
+      }
+
+      // Otherwise geocode via Open-Meteo
+      var url = CONFIG.GEOCODING_URL + '?name=' + encodeURIComponent(query) + '&count=1&language=en&format=json';
+      return fetchJSON(url).then(function(data) {
+        if (!data.results || data.results.length === 0) {
+          throw new Error('Location not found');
+        }
+        var r = data.results[0];
+        return {
+          lat: r.latitude,
+          lon: r.longitude,
+          city: r.name,
+          region: r.admin1 || r.country || ''
+        };
+      });
+    }
+
+    function resolveLocationForLoad() {
+      locationError.textContent = '';
+
+      // On page load: auto-detect if checked, otherwise use saved location
+      if (autoDetectToggle.checked) {
+        return detectLocationAuto();
+      }
+
+      var prefs = loadPrefs();
+      if (prefs && prefs.manual) {
+        return Promise.resolve(prefs.manual);
+      }
+      return Promise.resolve(CONFIG.DEFAULT_LOCATION);
+    }
+
+    function resolveLocationManual(query) {
+      locationError.textContent = '';
+      return geocodeCity(query).catch(function(err) {
+        locationError.textContent = 'Could not find "' + query + '".';
+        return null;
+      });
     }
 
     // ==========================================
@@ -782,40 +989,165 @@
     }
 
     // ==========================================
+    // LOCATION DISPLAY HELPERS
+    // ==========================================
+    function locationDisplayName(loc) {
+      var name = loc.city || '';
+      if (loc.region) name += ', ' + loc.region;
+      return name;
+    }
+
+    function updateLocationLabel(loc) {
+      locLabel.textContent = locationDisplayName(loc);
+      locationInput.value = locationDisplayName(loc);
+    }
+
+    // ==========================================
+    // LOCATION EDITOR (expand / collapse)
+    // ==========================================
+    function openEditor() {
+      locEditor.classList.add('open');
+      locLabel.style.visibility = 'hidden';
+      // Small delay so the click that opened doesn't immediately blur
+      setTimeout(function() { locationInput.focus(); locationInput.select(); }, 50);
+    }
+
+    function closeEditor() {
+      locEditor.classList.remove('open');
+      locLabel.style.visibility = '';
+      locationError.textContent = '';
+    }
+
+    // Click the label to open
+    locLabel.addEventListener('click', function(e) {
+      e.stopPropagation();
+      openEditor();
+    });
+
+    // Close when clicking outside
+    document.addEventListener('mousedown', function(e) {
+      if (!locEditor.classList.contains('open')) return;
+      if (locSwitcher.contains(e.target)) return;
+      closeEditor();
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && locEditor.classList.contains('open')) {
+        closeEditor();
+      }
+    });
+
+    // "Go" button or Enter: geocode and reload
+    function submitManualLocation() {
+      var query = locationInput.value.trim();
+      if (!query) {
+        locationError.textContent = 'Enter a city or coordinates.';
+        return;
+      }
+      locationError.textContent = '';
+      locationGoBtn.disabled = true;
+      locationGoBtn.textContent = '...';
+
+      resolveLocationManual(query).then(function(loc) {
+        locationGoBtn.disabled = false;
+        locationGoBtn.textContent = 'Go';
+        if (!loc) return; // error already shown
+        updateLocationLabel(loc);
+        closeEditor();
+
+        // Save and reload pressure (solar + moon don't depend on location)
+        var prefs = loadPrefs() || {};
+        prefs.autoDetect = autoDetectToggle.checked;
+        prefs.manual = loc;
+        savePrefs(prefs);
+
+        reloadPressure(loc);
+      });
+    }
+
+    locationGoBtn.addEventListener('click', function() {
+      submitManualLocation();
+    });
+
+    locationInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitManualLocation();
+      }
+    });
+
+    // Auto-detect checkbox: when toggled on, immediately re-detect
+    autoDetectToggle.addEventListener('change', function() {
+      var prefs = loadPrefs() || {};
+      prefs.autoDetect = autoDetectToggle.checked;
+      savePrefs(prefs);
+
+      if (autoDetectToggle.checked) {
+        locationGoBtn.disabled = true;
+        locationGoBtn.textContent = '...';
+        detectLocationAuto().then(function(loc) {
+          locationGoBtn.disabled = false;
+          locationGoBtn.textContent = 'Go';
+          updateLocationLabel(loc);
+          closeEditor();
+          prefs.manual = loc;
+          savePrefs(prefs);
+          reloadPressure(loc);
+        });
+      }
+    });
+
+    // ==========================================
+    // RELOAD HELPERS
+    // ==========================================
+    function reloadPressure(loc) {
+      setLoading('card-pressure');
+      fetchPressure(loc.lat, loc.lon)
+        .then(renderPressure)
+        .catch(function() {
+          showError('card-pressure', 'Failed to load pressure data.');
+        })
+        .then(function() {
+          document.getElementById('last-updated').textContent =
+            new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        });
+    }
+
+    // ==========================================
     // INITIALIZATION
     // ==========================================
-    function init() {
+    function loadDashboard() {
       setLoading('card-pressure');
       setLoading('card-moon');
       setLoading('card-solar');
 
-      // Moon is synchronous - render immediately
+      // Moon is synchronous
       try {
-        var moonData = calculateMoon();
-        renderMoon(moonData);
+        renderMoon(calculateMoon());
       } catch (e) {
         showError('card-moon', 'Could not calculate moon data.');
       }
 
-      // Detect location, then fetch pressure + solar in parallel
-      detectLocation().then(function(loc) {
-        var displayName = loc.city;
-        if (loc.region) displayName += ', ' + loc.region;
-        document.getElementById('location-display').textContent = displayName;
+      // Solar flares (location-independent)
+      fetchSolarFlares()
+        .then(renderSolar)
+        .catch(function() {
+          showError('card-solar', 'Failed to load solar flare data.');
+        });
 
-        var pressurePromise = fetchPressure(loc.lat, loc.lon)
-          .then(renderPressure)
-          .catch(function(err) {
-            showError('card-pressure', 'Failed to load pressure data.');
-          });
+      // Location + pressure
+      resolveLocationForLoad().then(function(loc) {
+        updateLocationLabel(loc);
 
-        var solarPromise = fetchSolarFlares()
-          .then(renderSolar)
-          .catch(function(err) {
-            showError('card-solar', 'Failed to load solar flare data.');
-          });
+        var prefs = loadPrefs() || {};
+        prefs.autoDetect = autoDetectToggle.checked;
+        prefs.manual = loc;
+        savePrefs(prefs);
 
-        return Promise.all([pressurePromise, solarPromise]);
+        return fetchPressure(loc.lat, loc.lon).then(renderPressure);
+      }).catch(function() {
+        showError('card-pressure', 'Failed to load pressure data.');
       }).then(function() {
         document.getElementById('last-updated').textContent =
           new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -823,14 +1155,23 @@
     }
 
     // Expose refresh for retry buttons
-    window.__refresh = init;
+    window.__refresh = loadDashboard;
 
-    document.getElementById('refresh-btn').addEventListener('click', init);
+    document.getElementById('refresh-btn').addEventListener('click', loadDashboard);
 
+    // Restore saved preferences
+    (function restorePrefs() {
+      var prefs = loadPrefs();
+      if (prefs) {
+        autoDetectToggle.checked = !!prefs.autoDetect;
+      }
+    })();
+
+    // Boot
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', init);
+      document.addEventListener('DOMContentLoaded', loadDashboard);
     } else {
-      init();
+      loadDashboard();
     }
 
   })();
