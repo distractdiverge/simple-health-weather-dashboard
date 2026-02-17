@@ -185,6 +185,7 @@
       flex-direction: column;
     }
     .card-pressure { grid-column: 1 / -1; }
+    .card-astro { grid-row: span 2; }
 
     .card-top {
       height: 3px;
@@ -192,7 +193,9 @@
     }
     .card-pressure .card-top { background: linear-gradient(90deg, var(--accent-blue), #7dd3fc); }
     .card-moon .card-top { background: linear-gradient(90deg, var(--accent-purple), #c4b5fd); }
+    .card-astro .card-top { background: linear-gradient(90deg, #9333ea, #ec4899); }
     .card-solar .card-top { background: linear-gradient(90deg, var(--accent-orange), var(--accent-yellow)); }
+    .card-temp .card-top { background: linear-gradient(90deg, #10b981, #34d399); }
 
     .card-header {
       padding: 16px 20px 0;
@@ -269,6 +272,122 @@
       font-family: var(--font-mono);
       font-weight: 500;
     }
+
+    /* Temperature card */
+    .temp-display {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .temp-current {
+      font-size: 3.5rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+      line-height: 1;
+    }
+    .temp-current .unit {
+      font-size: 1.5rem;
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+    .temp-details {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+    .temp-details span strong {
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-weight: 500;
+    }
+
+    /* Astrological Events card */
+    .astro-event-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .astro-event-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-color);
+      transition: background 0.15s;
+    }
+    .astro-event-item:last-child { border-bottom: none; }
+    .astro-event-item:hover {
+      background: rgba(167, 139, 250, 0.03);
+      margin: 0 -8px;
+      padding-left: 8px;
+      padding-right: 8px;
+      border-radius: 6px;
+    }
+    .astro-event-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+      font-weight: 600;
+    }
+    .astro-event-icon.retrograde {
+      background: rgba(248, 113, 113, 0.15);
+      color: var(--accent-red);
+    }
+    .astro-event-icon.eclipse {
+      background: rgba(251, 191, 36, 0.15);
+      color: var(--accent-yellow);
+    }
+    .astro-event-icon.position {
+      background: rgba(167, 139, 250, 0.15);
+      color: var(--accent-purple);
+    }
+    .astro-event-icon.node {
+      background: rgba(74, 158, 255, 0.15);
+      color: var(--accent-blue);
+    }
+    .astro-event-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .astro-event-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+    .astro-event-detail {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      line-height: 1.4;
+    }
+    .astro-event-date {
+      font-size: 0.75rem;
+      color: var(--accent-purple);
+      margin-top: 3px;
+      font-family: var(--font-mono);
+    }
+    .no-astro-events {
+      color: var(--text-secondary);
+      font-style: italic;
+      padding: 20px 0;
+      text-align: center;
+      font-size: 0.85rem;
+    }
+    .astro-event-list::-webkit-scrollbar { width: 4px; }
+    .astro-event-list::-webkit-scrollbar-track { background: transparent; }
+    .astro-event-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
 
     /* Solar card */
     .solar-summary {
@@ -432,6 +551,7 @@
         padding: 0 16px 16px;
       }
       .card-pressure { grid-column: 1; }
+      .card-astro { grid-row: auto; }
       .footer { padding: 12px 16px 20px; }
       .chart-wrap { height: 220px; }
     }
@@ -508,6 +628,19 @@
       </div>
     </section>
 
+    <!-- Astrological Events -->
+    <section class="card card-astro loading" id="card-astro">
+      <div class="card-top"></div>
+      <div class="card-header">
+        <h2>Astrological Events</h2>
+      </div>
+      <div class="card-body">
+        <div class="card-body-content">
+          <ul class="astro-event-list" id="astro-event-list"></ul>
+        </div>
+      </div>
+    </section>
+
     <!-- Solar Flare Activity -->
     <section class="card card-solar loading" id="card-solar">
       <div class="card-top"></div>
@@ -519,6 +652,26 @@
           <div class="solar-summary" id="solar-summary"></div>
           <ul class="flare-list" id="flare-list"></ul>
         </div>
+      </div>
+    </section>
+
+    <!-- Temperature -->
+    <section class="card card-temp loading" id="card-temp">
+      <div class="card-top"></div>
+      <div class="card-header">
+        <h2>Temperature</h2>
+      </div>
+      <div class="card-body">
+        <div class="card-body-content">
+          <div class="temp-display">
+            <div class="temp-current" id="temp-current"></div>
+            <div class="temp-details" id="temp-details"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <span id="temp-range">Range: --</span>
+        <span id="temp-trend" class="trend">Trend: --</span>
       </div>
     </section>
   </main>
@@ -550,7 +703,10 @@
       PAST_DAYS: 3,
       SOLAR_LOOKBACK_DAYS: 7,
       DEFAULT_LOCATION: { lat: 40.7128, lon: -74.006, city: 'New York', region: 'NY' },
-      STORAGE_KEY: 'hwm_location_prefs'
+      STORAGE_KEY: 'hwm_location_prefs',
+      ASTRO_LOOKFORWARD_DAYS: 180,
+      RETROGRADE_CHECK_DAYS: 7,
+      PLANETS_TO_CHECK: ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune']
     };
 
     var ZODIAC = [
@@ -849,6 +1005,86 @@
     }
 
     // ==========================================
+    // TEMPERATURE
+    // ==========================================
+    function fetchTemperature(lat, lon) {
+      var url = CONFIG.OPEN_METEO_BASE +
+        '?latitude=' + lat +
+        '&longitude=' + lon +
+        '&hourly=temperature_2m,apparent_temperature' +
+        '&daily=temperature_2m_max,temperature_2m_min' +
+        '&temperature_unit=fahrenheit' +
+        '&forecast_days=1' +
+        '&past_days=' + CONFIG.PAST_DAYS;
+      return fetchJSON(url).then(function(data) {
+        var times = [];
+        var temps = [];
+        var feelsLike = [];
+
+        // Get hourly data
+        for (var i = 0; i < data.hourly.time.length; i++) {
+          if (data.hourly.temperature_2m[i] != null) {
+            times.push(data.hourly.time[i]);
+            temps.push(data.hourly.temperature_2m[i]);
+            feelsLike.push(data.hourly.apparent_temperature[i]);
+          }
+        }
+
+        // Get today's min/max
+        var todayMin = data.daily.temperature_2m_min[data.daily.temperature_2m_min.length - 1];
+        var todayMax = data.daily.temperature_2m_max[data.daily.temperature_2m_max.length - 1];
+
+        return {
+          times: times,
+          temps: temps,
+          feelsLike: feelsLike,
+          todayMin: todayMin,
+          todayMax: todayMax
+        };
+      });
+    }
+
+    function calculateTempTrend(temps) {
+      if (temps.length < 12) return { direction: 'steady', arrow: '\u2192', delta: 0 };
+      var recent = temps.slice(-6);
+      var prior = temps.slice(-12, -6);
+      var avgRecent = recent.reduce(function(a, b) { return a + b; }, 0) / recent.length;
+      var avgPrior = prior.reduce(function(a, b) { return a + b; }, 0) / prior.length;
+      var delta = avgRecent - avgPrior;
+      if (delta > 2) return { direction: 'rising', arrow: '\u2191', delta: delta };
+      if (delta < -2) return { direction: 'falling', arrow: '\u2193', delta: delta };
+      return { direction: 'steady', arrow: '\u2192', delta: delta };
+    }
+
+    function renderTemperature(data) {
+      clearLoading('card-temp');
+
+      // Current temperature
+      var currentTemp = data.temps[data.temps.length - 1];
+      var currentFeels = data.feelsLike[data.feelsLike.length - 1];
+
+      document.getElementById('temp-current').innerHTML =
+        Math.round(currentTemp) + '<span class="unit">\u00B0F</span>';
+
+      document.getElementById('temp-details').innerHTML =
+        '<span>Feels like: <strong>' + Math.round(currentFeels) + '\u00B0F</strong></span>' +
+        '<span>Today\'s high: <strong>' + Math.round(data.todayMax) + '\u00B0F</strong></span>' +
+        '<span>Today\'s low: <strong>' + Math.round(data.todayMin) + '\u00B0F</strong></span>';
+
+      // Range
+      document.getElementById('temp-range').textContent =
+        'Range: ' + Math.round(data.todayMin) + '\u00B0 - ' + Math.round(data.todayMax) + '\u00B0F';
+
+      // Trend
+      var trend = calculateTempTrend(data.temps);
+      var trendEl = document.getElementById('temp-trend');
+      trendEl.textContent = 'Trend: ' + trend.arrow + ' ' +
+        trend.direction.charAt(0).toUpperCase() + trend.direction.slice(1) +
+        ' (' + (trend.delta > 0 ? '+' : '') + trend.delta.toFixed(1) + '\u00B0F)';
+      trendEl.className = 'trend ' + trend.direction;
+    }
+
+    // ==========================================
     // MOON SIGN
     // ==========================================
     function getMoonPhaseName(angle) {
@@ -909,6 +1145,301 @@
         '<span>Phase: <strong>' + data.phaseName + '</strong></span>' +
         '<span>Illumination: <strong>' + data.illumination.toFixed(0) + '%</strong></span>' +
         '<span>Ecliptic longitude: <strong>' + data.longitude.toFixed(1) + '\u00B0</strong> (' + data.degrees + '\u00B0 ' + data.signName + ')</span>';
+    }
+
+    // ==========================================
+    // ASTROLOGICAL EVENTS
+    // ==========================================
+    function getPlanetEmoji(planetName) {
+      var emojis = {
+        'Mercury': '\u263F',
+        'Venus': '\u2640',
+        'Mars': '\u2642',
+        'Jupiter': '\u2643',
+        'Saturn': '\u2644',
+        'Uranus': '\u2645',
+        'Neptune': '\u2646'
+      };
+      return emojis[planetName] || '\u2609';
+    }
+
+    function calculateRetrogrades() {
+      var retrogrades = [];
+      var now = new Date();
+      var past = new Date(now.getTime() - CONFIG.RETROGRADE_CHECK_DAYS * 24 * 60 * 60 * 1000);
+      var future = new Date(now.getTime() + CONFIG.RETROGRADE_CHECK_DAYS * 24 * 60 * 60 * 1000);
+
+      for (var i = 0; i < CONFIG.PLANETS_TO_CHECK.length; i++) {
+        var planetName = CONFIG.PLANETS_TO_CHECK[i];
+        try {
+          var vecPast = Astronomy.GeoVector(planetName, past, false);
+          var vecNow = Astronomy.GeoVector(planetName, now, false);
+          var vecFuture = Astronomy.GeoVector(planetName, future, false);
+
+          var eclPast = Astronomy.Ecliptic(vecPast);
+          var eclNow = Astronomy.Ecliptic(vecNow);
+          var eclFuture = Astronomy.Ecliptic(vecFuture);
+
+          var lonPast = eclPast.elon;
+          var lonNow = eclNow.elon;
+          var lonFuture = eclFuture.elon;
+
+          // Normalize to 0-360
+          if (lonPast < 0) lonPast += 360;
+          if (lonNow < 0) lonNow += 360;
+          if (lonFuture < 0) lonFuture += 360;
+
+          // Calculate deltas, handling 360° wrap
+          var delta1 = lonNow - lonPast;
+          var delta2 = lonFuture - lonNow;
+
+          // Handle wraparound at 0/360
+          if (delta1 > 180) delta1 -= 360;
+          if (delta1 < -180) delta1 += 360;
+          if (delta2 > 180) delta2 -= 360;
+          if (delta2 < -180) delta2 += 360;
+
+          // If both deltas are negative, planet is retrograde
+          if (delta1 < 0 && delta2 < 0) {
+            var signIndex = Math.floor(lonNow / 30) % 12;
+            var sign = ZODIAC[signIndex];
+            retrogrades.push({
+              type: 'retrograde',
+              planet: planetName,
+              sign: sign.name,
+              symbol: sign.symbol,
+              longitude: lonNow,
+              priority: 1
+            });
+          }
+        } catch (e) {
+          // Skip planets that fail calculation
+          continue;
+        }
+      }
+
+      return retrogrades;
+    }
+
+    function calculateNextEclipse() {
+      var now = new Date();
+      var maxDays = CONFIG.ASTRO_LOOKFORWARD_DAYS;
+      var maxDate = new Date(now.getTime() + maxDays * 24 * 60 * 60 * 1000);
+
+      try {
+        var lunarEclipse = Astronomy.SearchLunarEclipse(now);
+        var solarEclipse = Astronomy.SearchGlobalSolarEclipse(now);
+
+        var nextEclipse = null;
+
+        // Check lunar eclipse
+        if (lunarEclipse && lunarEclipse.peak && new Date(lunarEclipse.peak.date) <= maxDate) {
+          nextEclipse = {
+            type: 'eclipse',
+            eclipseType: 'lunar',
+            kind: lunarEclipse.kind || 'partial',
+            date: new Date(lunarEclipse.peak.date),
+            priority: 2
+          };
+        }
+
+        // Check solar eclipse
+        if (solarEclipse && solarEclipse.peak && new Date(solarEclipse.peak.date) <= maxDate) {
+          var solarDate = new Date(solarEclipse.peak.date);
+          if (!nextEclipse || solarDate < nextEclipse.date) {
+            nextEclipse = {
+              type: 'eclipse',
+              eclipseType: 'solar',
+              kind: solarEclipse.kind || 'partial',
+              date: solarDate,
+              priority: 2
+            };
+          }
+        }
+
+        return nextEclipse ? [nextEclipse] : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function calculatePlanetaryPositions() {
+      var positions = [];
+      var now = new Date();
+
+      for (var i = 0; i < CONFIG.PLANETS_TO_CHECK.length; i++) {
+        var planetName = CONFIG.PLANETS_TO_CHECK[i];
+        try {
+          var vec = Astronomy.GeoVector(planetName, now, false);
+          var ecl = Astronomy.Ecliptic(vec);
+          var lon = ecl.elon;
+          if (lon < 0) lon += 360;
+
+          var signIndex = Math.floor(lon / 30) % 12;
+          var sign = ZODIAC[signIndex];
+          var degrees = (lon % 30).toFixed(1);
+
+          positions.push({
+            type: 'position',
+            planet: planetName,
+            sign: sign.name,
+            symbol: sign.symbol,
+            longitude: lon,
+            degrees: degrees,
+            priority: 3
+          });
+        } catch (e) {
+          continue;
+        }
+      }
+
+      return positions;
+    }
+
+    function calculateLunarNodes() {
+      var now = new Date();
+      var maxDays = 30; // Only show if within 30 days
+
+      try {
+        var nextNode = Astronomy.SearchMoonNode(now);
+        if (!nextNode || !nextNode.time) return [];
+
+        var nodeDate = new Date(nextNode.time.date);
+        var daysUntil = (nodeDate - now) / (1000 * 60 * 60 * 24);
+
+        if (daysUntil > maxDays) return [];
+
+        // Calculate zodiac position at node
+        var moon = Astronomy.EclipticGeoMoon(nodeDate);
+        var lon = moon.lon;
+        if (lon < 0) lon += 360;
+        var signIndex = Math.floor(lon / 30) % 12;
+        var sign = ZODIAC[signIndex];
+
+        return [{
+          type: 'node',
+          nodeType: nextNode.kind === 1 ? 'North' : 'South',
+          sign: sign.name,
+          symbol: sign.symbol,
+          date: nodeDate,
+          priority: 4
+        }];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function calculateAstroEvents() {
+      var events = [];
+
+      // Collect all events
+      var retrogrades = calculateRetrogrades();
+      var eclipses = calculateNextEclipse();
+      var positions = calculatePlanetaryPositions();
+      var nodes = calculateLunarNodes();
+
+      events = events.concat(retrogrades);
+      events = events.concat(eclipses);
+
+      // Only show positions if we have fewer than 3 higher priority events
+      var highPriorityCount = retrogrades.length + eclipses.length;
+      if (highPriorityCount < 3) {
+        events = events.concat(positions);
+      }
+
+      // Only show nodes if we have fewer than 5 total events
+      if (events.length < 5) {
+        events = events.concat(nodes);
+      }
+
+      // Sort by priority, then by date if both have dates
+      events.sort(function(a, b) {
+        if (a.priority !== b.priority) return a.priority - b.priority;
+        if (a.date && b.date) return a.date - b.date;
+        if (a.date) return -1;
+        if (b.date) return 1;
+        return 0;
+      });
+
+      return events;
+    }
+
+    function renderAstroEvents(events) {
+      clearLoading('card-astro');
+      var listEl = document.getElementById('astro-event-list');
+
+      if (events.length === 0) {
+        listEl.innerHTML = '<li class="no-astro-events">No significant astrological events detected.</li>';
+        return;
+      }
+
+      var html = '';
+      var now = new Date();
+
+      for (var i = 0; i < events.length; i++) {
+        var event = events[i];
+        var iconClass = '';
+        var iconText = '';
+        var title = '';
+        var detail = '';
+        var dateText = '';
+
+        if (event.type === 'retrograde') {
+          iconClass = 'retrograde';
+          iconText = '\u21BA'; // Retrograde symbol
+          title = event.planet + ' Retrograde';
+          detail = 'Currently in ' + event.symbol + ' ' + event.sign + ' (' + event.longitude.toFixed(1) + '\u00B0)';
+        } else if (event.type === 'eclipse') {
+          iconClass = 'eclipse';
+          iconText = event.eclipseType === 'solar' ? '\u2600\uFE0F' : '\uD83C\uDF15';
+          var kindName = event.kind.charAt(0).toUpperCase() + event.kind.slice(1);
+          title = kindName + ' ' + (event.eclipseType === 'solar' ? 'Solar' : 'Lunar') + ' Eclipse';
+          detail = 'Next occurrence';
+
+          var daysUntil = Math.ceil((event.date - now) / (1000 * 60 * 60 * 24));
+          if (daysUntil === 0) {
+            dateText = 'Today';
+          } else if (daysUntil === 1) {
+            dateText = 'Tomorrow';
+          } else if (daysUntil <= 7) {
+            dateText = 'In ' + daysUntil + ' days';
+          } else {
+            dateText = event.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          }
+        } else if (event.type === 'position') {
+          iconClass = 'position';
+          iconText = getPlanetEmoji(event.planet);
+          title = event.planet + ' in ' + event.sign;
+          detail = event.symbol + ' ' + event.degrees + '\u00B0 ' + event.sign;
+        } else if (event.type === 'node') {
+          iconClass = 'node';
+          iconText = event.nodeType === 'North' ? '\u260A' : '\u260B';
+          title = event.nodeType + ' Lunar Node';
+          detail = 'Entering ' + event.symbol + ' ' + event.sign;
+
+          var nodeDaysUntil = Math.ceil((event.date - now) / (1000 * 60 * 60 * 24));
+          if (nodeDaysUntil === 0) {
+            dateText = 'Today';
+          } else if (nodeDaysUntil === 1) {
+            dateText = 'Tomorrow';
+          } else if (nodeDaysUntil <= 7) {
+            dateText = 'In ' + nodeDaysUntil + ' days';
+          } else {
+            dateText = event.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          }
+        }
+
+        html += '<li class="astro-event-item">' +
+          '<div class="astro-event-icon ' + iconClass + '">' + iconText + '</div>' +
+          '<div class="astro-event-content">' +
+            '<div class="astro-event-title">' + title + '</div>' +
+            '<div class="astro-event-detail">' + detail + '</div>' +
+            (dateText ? '<div class="astro-event-date">' + dateText + '</div>' : '') +
+          '</div>' +
+        '</li>';
+      }
+
+      listEl.innerHTML = html;
     }
 
     // ==========================================
@@ -1103,15 +1634,18 @@
     // ==========================================
     function reloadPressure(loc) {
       setLoading('card-pressure');
-      fetchPressure(loc.lat, loc.lon)
-        .then(renderPressure)
-        .catch(function() {
+      setLoading('card-temp');
+      Promise.all([
+        fetchPressure(loc.lat, loc.lon).then(renderPressure).catch(function() {
           showError('card-pressure', 'Failed to load pressure data.');
+        }),
+        fetchTemperature(loc.lat, loc.lon).then(renderTemperature).catch(function() {
+          showError('card-temp', 'Failed to load temperature data.');
         })
-        .then(function() {
-          document.getElementById('last-updated').textContent =
-            new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-        });
+      ]).then(function() {
+        document.getElementById('last-updated').textContent =
+          new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      });
     }
 
     // ==========================================
@@ -1120,13 +1654,23 @@
     function loadDashboard() {
       setLoading('card-pressure');
       setLoading('card-moon');
+      setLoading('card-astro');
       setLoading('card-solar');
+      setLoading('card-temp');
 
       // Moon is synchronous
       try {
         renderMoon(calculateMoon());
       } catch (e) {
         showError('card-moon', 'Could not calculate moon data.');
+      }
+
+      // Astrological events are synchronous
+      try {
+        var astroEvents = calculateAstroEvents();
+        renderAstroEvents(astroEvents);
+      } catch (e) {
+        showError('card-astro', 'Could not calculate astrological events.');
       }
 
       // Solar flares (location-independent)
@@ -1136,7 +1680,7 @@
           showError('card-solar', 'Failed to load solar flare data.');
         });
 
-      // Location + pressure
+      // Location + pressure + temperature
       resolveLocationForLoad().then(function(loc) {
         updateLocationLabel(loc);
 
@@ -1145,9 +1689,18 @@
         prefs.manual = loc;
         savePrefs(prefs);
 
-        return fetchPressure(loc.lat, loc.lon).then(renderPressure);
+        // Fetch both pressure and temperature
+        return Promise.all([
+          fetchPressure(loc.lat, loc.lon).then(renderPressure).catch(function() {
+            showError('card-pressure', 'Failed to load pressure data.');
+          }),
+          fetchTemperature(loc.lat, loc.lon).then(renderTemperature).catch(function() {
+            showError('card-temp', 'Failed to load temperature data.');
+          })
+        ]);
       }).catch(function() {
         showError('card-pressure', 'Failed to load pressure data.');
+        showError('card-temp', 'Failed to load temperature data.');
       }).then(function() {
         document.getElementById('last-updated').textContent =
           new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
