@@ -301,35 +301,51 @@
       font-weight: 500;
     }
 
-    /* Temperature card */
-    .temp-display {
+    /* Temperature and Humidity card */
+    .temp-humidity-display {
+      display: flex;
+      gap: 24px;
+      justify-content: space-between;
+    }
+    .temp-section, .humidity-section {
+      flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
     }
-    .temp-current {
-      font-size: 3.5rem;
+    .temp-current, .humidity-current {
+      font-size: 3rem;
       font-weight: 700;
       font-family: var(--font-mono);
       color: var(--text-primary);
       line-height: 1;
     }
-    .temp-current .unit {
-      font-size: 1.5rem;
+    .temp-current .unit, .humidity-current .unit {
+      font-size: 1.2rem;
       color: var(--text-secondary);
       font-weight: 400;
     }
-    .temp-details {
+    .temp-details, .humidity-details {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      font-size: 0.9rem;
+      gap: 4px;
+      font-size: 0.8rem;
       color: var(--text-secondary);
     }
-    .temp-details span strong {
+    .temp-details span strong, .humidity-details span strong {
       color: var(--text-primary);
       font-family: var(--font-mono);
       font-weight: 500;
+    }
+
+    @media (max-width: 480px) {
+      .temp-humidity-display {
+        flex-direction: column;
+        gap: 20px;
+      }
+      .temp-current, .humidity-current {
+        font-size: 2.5rem;
+      }
     }
 
     /* Astrological Events card */
@@ -641,19 +657,25 @@
     <section class="card card-temp loading" id="card-temp">
       <div class="card-top"></div>
       <div class="card-header">
-        <h2>Temperature</h2>
+        <h2>Temperature and Humidity</h2>
       </div>
       <div class="card-body">
         <div class="card-body-content">
-          <div class="temp-display">
-            <div class="temp-current" id="temp-current"></div>
-            <div class="temp-details" id="temp-details"></div>
+          <div class="temp-humidity-display">
+            <div class="temp-section">
+              <div class="temp-current" id="temp-current"></div>
+              <div class="temp-details" id="temp-details"></div>
+            </div>
+            <div class="humidity-section">
+              <div class="humidity-current" id="humidity-current"></div>
+              <div class="humidity-details" id="humidity-details"></div>
+            </div>
           </div>
         </div>
       </div>
       <div class="card-footer">
-        <span id="temp-range">Range: --</span>
-        <span id="temp-trend" class="trend">Trend: --</span>
+        <span id="temp-trend" class="trend">Temp: --</span>
+        <span id="humidity-trend" class="trend">Humidity: --</span>
       </div>
     </section>
 
@@ -929,11 +951,11 @@
     // WEATHER DATA (Consolidated)
     // ==========================================
     function fetchWeatherData(lat, lon) {
-      // Single API call for both pressure and temperature data
+      // Single API call for pressure, temperature, and humidity data
       var url = CONFIG.WEATHER_URL +
         '?latitude=' + lat +
         '&longitude=' + lon +
-        '&hourly=surface_pressure,temperature_2m,apparent_temperature' +
+        '&hourly=surface_pressure,temperature_2m,apparent_temperature,relative_humidity_2m' +
         '&daily=temperature_2m_max,temperature_2m_min' +
         '&temperature_unit=fahrenheit' +
         '&forecast_days=' + CONFIG.FORECAST_DAYS +
@@ -954,11 +976,13 @@
         var tempTimes = [];
         var temps = [];
         var feelsLike = [];
+        var humidity = [];
         for (var j = 0; j < data.hourly.time.length; j++) {
           if (data.hourly.temperature_2m[j] != null) {
             tempTimes.push(data.hourly.time[j]);
             temps.push(data.hourly.temperature_2m[j]);
             feelsLike.push(data.hourly.apparent_temperature[j]);
+            humidity.push(data.hourly.relative_humidity_2m[j]);
           }
         }
 
@@ -974,6 +998,7 @@
             times: tempTimes,
             temps: temps,
             feelsLike: feelsLike,
+            humidity: humidity,
             todayMin: todayMin,
             todayMax: todayMax
           }
@@ -1071,7 +1096,7 @@
     }
 
     // ==========================================
-    // TEMPERATURE
+    // TEMPERATURE AND HUMIDITY
     // ==========================================
     function calculateTempTrend(temps) {
       if (temps.length < 12) return { direction: 'steady', arrow: '\u2192', delta: 0 };
@@ -1085,32 +1110,65 @@
       return { direction: 'steady', arrow: '\u2192', delta: delta };
     }
 
+    function calculateHumidityTrend(humidity) {
+      if (humidity.length < 12) return { direction: 'steady', arrow: '\u2192', delta: 0 };
+      var recent = humidity.slice(-6);
+      var prior = humidity.slice(-12, -6);
+      var avgRecent = recent.reduce(function(a, b) { return a + b; }, 0) / recent.length;
+      var avgPrior = prior.reduce(function(a, b) { return a + b; }, 0) / prior.length;
+      var delta = avgRecent - avgPrior;
+      if (delta > 5) return { direction: 'rising', arrow: '\u2191', delta: delta };
+      if (delta < -5) return { direction: 'falling', arrow: '\u2193', delta: delta };
+      return { direction: 'steady', arrow: '\u2192', delta: delta };
+    }
+
     function renderTemperature(data) {
       clearLoading('card-temp');
 
       // Current temperature
       var currentTemp = data.temps[data.temps.length - 1];
       var currentFeels = data.feelsLike[data.feelsLike.length - 1];
+      var currentHumidity = data.humidity[data.humidity.length - 1];
 
+      // Calculate humidity stats
+      var humidityValues = data.humidity.slice(-24); // Last 24 hours
+      var minHumidity = Math.min.apply(null, humidityValues);
+      var maxHumidity = Math.max.apply(null, humidityValues);
+      var avgHumidity = humidityValues.reduce(function(a, b) { return a + b; }, 0) / humidityValues.length;
+
+      // Temperature section
       document.getElementById('temp-current').innerHTML =
         Math.round(currentTemp) + '<span class="unit">\u00B0F</span>';
 
       document.getElementById('temp-details').innerHTML =
         '<span>Feels like: <strong>' + Math.round(currentFeels) + '\u00B0F</strong></span>' +
-        '<span>Today\'s high: <strong>' + Math.round(data.todayMax) + '\u00B0F</strong></span>' +
-        '<span>Today\'s low: <strong>' + Math.round(data.todayMin) + '\u00B0F</strong></span>';
+        '<span>High: <strong>' + Math.round(data.todayMax) + '\u00B0F</strong></span>' +
+        '<span>Low: <strong>' + Math.round(data.todayMin) + '\u00B0F</strong></span>';
 
-      // Range
-      document.getElementById('temp-range').textContent =
-        'Range: ' + Math.round(data.todayMin) + '\u00B0 - ' + Math.round(data.todayMax) + '\u00B0F';
+      // Humidity section
+      document.getElementById('humidity-current').innerHTML =
+        Math.round(currentHumidity) + '<span class="unit">%</span>';
 
-      // Trend
-      var trend = calculateTempTrend(data.temps);
-      var trendEl = document.getElementById('temp-trend');
-      trendEl.textContent = 'Trend: ' + trend.arrow + ' ' +
-        trend.direction.charAt(0).toUpperCase() + trend.direction.slice(1) +
-        ' (' + (trend.delta > 0 ? '+' : '') + trend.delta.toFixed(1) + '\u00B0F)';
-      trendEl.className = 'trend ' + trend.direction;
+      document.getElementById('humidity-details').innerHTML =
+        '<span>24h avg: <strong>' + Math.round(avgHumidity) + '%</strong></span>' +
+        '<span>High: <strong>' + Math.round(maxHumidity) + '%</strong></span>' +
+        '<span>Low: <strong>' + Math.round(minHumidity) + '%</strong></span>';
+
+      // Temperature trend
+      var tempTrend = calculateTempTrend(data.temps);
+      var tempTrendEl = document.getElementById('temp-trend');
+      tempTrendEl.textContent = 'Temp: ' + tempTrend.arrow + ' ' +
+        tempTrend.direction.charAt(0).toUpperCase() + tempTrend.direction.slice(1) +
+        ' (' + (tempTrend.delta > 0 ? '+' : '') + tempTrend.delta.toFixed(1) + '\u00B0)';
+      tempTrendEl.className = 'trend ' + tempTrend.direction;
+
+      // Humidity trend
+      var humidityTrend = calculateHumidityTrend(data.humidity);
+      var humidityTrendEl = document.getElementById('humidity-trend');
+      humidityTrendEl.textContent = 'Humidity: ' + humidityTrend.arrow + ' ' +
+        humidityTrend.direction.charAt(0).toUpperCase() + humidityTrend.direction.slice(1) +
+        ' (' + (humidityTrend.delta > 0 ? '+' : '') + humidityTrend.delta.toFixed(1) + '%)';
+      humidityTrendEl.className = 'trend ' + humidityTrend.direction;
     }
 
     // ==========================================
