@@ -1539,12 +1539,22 @@
       var url = CONFIG.SOLAR_FLARES_URL +
         '?startDate=' + formatDateISO(start) +
         '&endDate=' + formatDateISO(end);
-      return fetchJSON(url).then(function(data) {
-        if (!Array.isArray(data)) return [];
-        data.sort(function(a, b) {
-          return new Date(b.beginTime) - new Date(a.beginTime);
-        });
-        return data;
+      return fetchJSON(url)
+        .then(function(data) {
+          if (!Array.isArray(data)) return [];
+          
+          const badEntries = data.length === 0 ? [] : data.filter((f) => !f.beginTime);
+          if (badEntries.length > 0) {
+            console.warn('Filtered out ' + badEntries.length + ' flare entries without beginTime:', badEntries);
+          }
+
+          // Filter out entries without beginTime
+          data = data.filter((f) => f.beginTime);
+          
+          // Now we can sort anything that is remaining, knowing beginTime exists
+          data.sort(function(a, b) { return new Date(b.beginTime) - new Date(a.beginTime); });
+          
+          return data;
       });
     }
 
