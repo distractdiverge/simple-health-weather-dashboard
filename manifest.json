@@ -1,0 +1,26 @@
+{
+  "name": "Health Weather Metrics",
+  "short_name": "Health Weather",
+  "description": "Track environmental and astronomical metrics that may impact your health and well-being",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#0f1117",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icons8-dashboard-50-light.png",
+      "sizes": "50x50",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons8-dashboard-100-light.png",
+      "sizes": "100x100",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "weather", "lifestyle"],
+  "screenshots": []
+}

@@ -73,6 +73,7 @@ python -m http.server 8000
 2. **Change Location**: Click on the location label in the header to manually enter a city name or coordinates (e.g., "45.5, -122.6")
 3. **Refresh Data**: Click the "Refresh" button at the bottom to update all metrics
 4. **Auto-detect Toggle**: Enable/disable automatic location detection on page load
+5. **Install as App**: On mobile, use "Add to Home Screen" for a native app experience (see [PWA-GUIDE.md](PWA-GUIDE.md))
 
 ## Technologies
 
@@ -162,9 +163,11 @@ Solar flares and geomagnetic storms may influence:
 
 - 🎨 Dark theme optimized for comfortable viewing
 - 📱 Fully responsive mobile design
+- 📲 **Progressive Web App** - Install to home screen on mobile/desktop
 - ⚡ Fast loading with CDN-based dependencies
 - 💾 Remembers your location preferences
 - 🔄 Easy one-click refresh
+- 🔌 Offline support for app shell and calculations
 - ❌ Graceful error handling with retry options
 - 🎯 No installation, no build process, no complexity
 

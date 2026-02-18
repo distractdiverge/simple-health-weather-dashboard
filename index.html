@@ -5,6 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Health Weather Metrics</title>
 
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Theme Color -->
+  <meta name="theme-color" content="#0f1117">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <!-- iOS PWA Support -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Health Weather">
+
+  <!-- Description -->
+  <meta name="description" content="Track environmental and astronomical metrics that may impact your health and well-being">
+
   <!-- Favicons - Light version for dark mode (default) -->
   <link rel="icon" type="image/png" sizes="100x100" href="icons8-dashboard-100-light.png" media="(prefers-color-scheme: dark)">
   <link rel="icon" type="image/png" sizes="50x50" href="icons8-dashboard-50-light.png" media="(prefers-color-scheme: dark)">
@@ -1739,6 +1753,21 @@
     }
 
   })();
+  </script>
+
+  <!-- Service Worker Registration -->
+  <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('/service-worker.js')
+        .then(function(registration) {
+          console.log('Service Worker registered successfully:', registration.scope);
+        })
+        .catch(function(error) {
+          console.log('Service Worker registration failed:', error);
+        });
+    });
+  }
   </script>
 </body>
 </html>
