@@ -897,26 +897,64 @@
     }
 
     // ==========================================
-    // BAROMETRIC PRESSURE
+    // WEATHER DATA (Consolidated)
     // ==========================================
-    function fetchPressure(lat, lon) {
+    function fetchWeatherData(lat, lon) {
+      // Single API call for both pressure and temperature data
       var url = CONFIG.WEATHER_URL +
         '?latitude=' + lat +
         '&longitude=' + lon +
-        '&hourly=surface_pressure' +
+        '&hourly=surface_pressure,temperature_2m,apparent_temperature' +
+        '&daily=temperature_2m_max,temperature_2m_min' +
+        '&temperature_unit=fahrenheit' +
+        '&forecast_days=1' +
         '&past_days=' + CONFIG.PAST_DAYS;
+
       return fetchJSON(url).then(function(data) {
-        var times = [];
+        // Extract pressure data
+        var pressureTimes = [];
         var pressures = [];
         for (var i = 0; i < data.hourly.time.length; i++) {
           if (data.hourly.surface_pressure[i] != null) {
-            times.push(data.hourly.time[i]);
+            pressureTimes.push(data.hourly.time[i]);
             pressures.push(data.hourly.surface_pressure[i]);
           }
         }
-        return { times: times, pressures: pressures };
+
+        // Extract temperature data
+        var tempTimes = [];
+        var temps = [];
+        var feelsLike = [];
+        for (var j = 0; j < data.hourly.time.length; j++) {
+          if (data.hourly.temperature_2m[j] != null) {
+            tempTimes.push(data.hourly.time[j]);
+            temps.push(data.hourly.temperature_2m[j]);
+            feelsLike.push(data.hourly.apparent_temperature[j]);
+          }
+        }
+
+        var todayMin = data.daily.temperature_2m_min[data.daily.temperature_2m_min.length - 1];
+        var todayMax = data.daily.temperature_2m_max[data.daily.temperature_2m_max.length - 1];
+
+        return {
+          pressure: {
+            times: pressureTimes,
+            pressures: pressures
+          },
+          temperature: {
+            times: tempTimes,
+            temps: temps,
+            feelsLike: feelsLike,
+            todayMin: todayMin,
+            todayMax: todayMax
+          }
+        };
       });
     }
+
+    // ==========================================
+    // BAROMETRIC PRESSURE
+    // ==========================================
 
     function calculateTrend(pressures) {
       if (pressures.length < 12) return { direction: 'steady', arrow: '\u2192', delta: 0 };
@@ -1006,43 +1044,6 @@
     // ==========================================
     // TEMPERATURE
     // ==========================================
-    function fetchTemperature(lat, lon) {
-      var url = CONFIG.WEATHER_URL +
-        '?latitude=' + lat +
-        '&longitude=' + lon +
-        '&hourly=temperature_2m,apparent_temperature' +
-        '&daily=temperature_2m_max,temperature_2m_min' +
-        '&temperature_unit=fahrenheit' +
-        '&forecast_days=1' +
-        '&past_days=' + CONFIG.PAST_DAYS;
-      return fetchJSON(url).then(function(data) {
-        var times = [];
-        var temps = [];
-        var feelsLike = [];
-
-        // Get hourly data
-        for (var i = 0; i < data.hourly.time.length; i++) {
-          if (data.hourly.temperature_2m[i] != null) {
-            times.push(data.hourly.time[i]);
-            temps.push(data.hourly.temperature_2m[i]);
-            feelsLike.push(data.hourly.apparent_temperature[i]);
-          }
-        }
-
-        // Get today's min/max
-        var todayMin = data.daily.temperature_2m_min[data.daily.temperature_2m_min.length - 1];
-        var todayMax = data.daily.temperature_2m_max[data.daily.temperature_2m_max.length - 1];
-
-        return {
-          times: times,
-          temps: temps,
-          feelsLike: feelsLike,
-          todayMin: todayMin,
-          todayMax: todayMax
-        };
-      });
-    }
-
     function calculateTempTrend(temps) {
       if (temps.length < 12) return { direction: 'steady', arrow: '\u2192', delta: 0 };
       var recent = temps.slice(-6);
@@ -1591,7 +1592,7 @@
         prefs.manual = loc;
         savePrefs(prefs);
 
-        reloadPressure(loc);
+        reloadWeatherData(loc);
       });
     }
 
@@ -1622,7 +1623,7 @@
           closeEditor();
           prefs.manual = loc;
           savePrefs(prefs);
-          reloadPressure(loc);
+          reloadWeatherData(loc);
         });
       }
     });
@@ -1630,20 +1631,22 @@
     // ==========================================
     // RELOAD HELPERS
     // ==========================================
-    function reloadPressure(loc) {
+    function reloadWeatherData(loc) {
       setLoading('card-pressure');
       setLoading('card-temp');
-      Promise.all([
-        fetchPressure(loc.lat, loc.lon).then(renderPressure).catch(function() {
-          showError('card-pressure', 'Failed to load pressure data.');
-        }),
-        fetchTemperature(loc.lat, loc.lon).then(renderTemperature).catch(function() {
-          showError('card-temp', 'Failed to load temperature data.');
+      fetchWeatherData(loc.lat, loc.lon)
+        .then(function(weatherData) {
+          renderPressure(weatherData.pressure);
+          renderTemperature(weatherData.temperature);
         })
-      ]).then(function() {
-        document.getElementById('last-updated').textContent =
-          new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-      });
+        .catch(function() {
+          showError('card-pressure', 'Failed to load weather data.');
+          showError('card-temp', 'Failed to load weather data.');
+        })
+        .then(function() {
+          document.getElementById('last-updated').textContent =
+            new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        });
     }
 
     // ==========================================
@@ -1678,7 +1681,7 @@
           showError('card-solar', 'Failed to load solar flare data.');
         });
 
-      // Location + pressure + temperature
+      // Location + weather data (consolidated)
       resolveLocationForLoad().then(function(loc) {
         updateLocationLabel(loc);
 
@@ -1687,18 +1690,14 @@
         prefs.manual = loc;
         savePrefs(prefs);
 
-        // Fetch both pressure and temperature
-        return Promise.all([
-          fetchPressure(loc.lat, loc.lon).then(renderPressure).catch(function() {
-            showError('card-pressure', 'Failed to load pressure data.');
-          }),
-          fetchTemperature(loc.lat, loc.lon).then(renderTemperature).catch(function() {
-            showError('card-temp', 'Failed to load temperature data.');
-          })
-        ]);
+        // Fetch all weather data in a single call
+        return fetchWeatherData(loc.lat, loc.lon).then(function(weatherData) {
+          renderPressure(weatherData.pressure);
+          renderTemperature(weatherData.temperature);
+        });
       }).catch(function() {
-        showError('card-pressure', 'Failed to load pressure data.');
-        showError('card-temp', 'Failed to load temperature data.');
+        showError('card-pressure', 'Failed to load weather data.');
+        showError('card-temp', 'Failed to load weather data.');
       }).then(function() {
         document.getElementById('last-updated').textContent =
           new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
