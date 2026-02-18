@@ -622,7 +622,7 @@
     <section class="card card-pressure loading" id="card-pressure">
       <div class="card-top"></div>
       <div class="card-header">
-        <h2>Barometric Pressure &mdash; 3 Day Trend</h2>
+        <h2>Barometric Pressure &mdash; 3 Day Outlook</h2>
       </div>
       <div class="card-body">
         <div class="card-body-content">
@@ -727,7 +727,8 @@
       GEOCODING_URL: '/.netlify/functions/geocode',
       WEATHER_URL: '/.netlify/functions/weather',
       SOLAR_FLARES_URL: '/.netlify/functions/solar-flares',
-      PAST_DAYS: 3,
+      PAST_DAYS: 1,
+      FORECAST_DAYS: 2,
       SOLAR_LOOKBACK_DAYS: 7,
       DEFAULT_LOCATION: { lat: 40.7128, lon: -74.006, city: 'New York', region: 'NY' },
       STORAGE_KEY: 'hwm_location_prefs',
@@ -935,7 +936,7 @@
         '&hourly=surface_pressure,temperature_2m,apparent_temperature' +
         '&daily=temperature_2m_max,temperature_2m_min' +
         '&temperature_unit=fahrenheit' +
-        '&forecast_days=1' +
+        '&forecast_days=' + CONFIG.FORECAST_DAYS +
         '&past_days=' + CONFIG.PAST_DAYS;
 
       return fetchJSON(url).then(function(data) {
