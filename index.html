@@ -696,10 +696,9 @@
     // ==========================================
     var CONFIG = {
       GEOLOCATION_URL: 'https://ipapi.co/json/',
-      GEOCODING_URL: 'https://geocoding-api.open-meteo.com/v1/search',
-      OPEN_METEO_BASE: 'https://api.open-meteo.com/v1/forecast',
-      NASA_DONKI_BASE: 'https://api.nasa.gov/DONKI/FLR',
-      NASA_API_KEY: 'DEMO_KEY',
+      GEOCODING_URL: '/.netlify/functions/geocode',
+      WEATHER_URL: '/.netlify/functions/weather',
+      SOLAR_FLARES_URL: '/.netlify/functions/solar-flares',
       PAST_DAYS: 3,
       SOLAR_LOOKBACK_DAYS: 7,
       DEFAULT_LOCATION: { lat: 40.7128, lon: -74.006, city: 'New York', region: 'NY' },
@@ -858,7 +857,7 @@
         }
       }
 
-      // Otherwise geocode via Open-Meteo
+      // Otherwise geocode via Netlify Function
       var url = CONFIG.GEOCODING_URL + '?name=' + encodeURIComponent(query) + '&count=1&language=en&format=json';
       return fetchJSON(url).then(function(data) {
         if (!data.results || data.results.length === 0) {
@@ -901,7 +900,7 @@
     // BAROMETRIC PRESSURE
     // ==========================================
     function fetchPressure(lat, lon) {
-      var url = CONFIG.OPEN_METEO_BASE +
+      var url = CONFIG.WEATHER_URL +
         '?latitude=' + lat +
         '&longitude=' + lon +
         '&hourly=surface_pressure' +
@@ -1008,7 +1007,7 @@
     // TEMPERATURE
     // ==========================================
     function fetchTemperature(lat, lon) {
-      var url = CONFIG.OPEN_METEO_BASE +
+      var url = CONFIG.WEATHER_URL +
         '?latitude=' + lat +
         '&longitude=' + lon +
         '&hourly=temperature_2m,apparent_temperature' +
@@ -1449,10 +1448,9 @@
       var end = new Date();
       var start = new Date();
       start.setDate(start.getDate() - CONFIG.SOLAR_LOOKBACK_DAYS);
-      var url = CONFIG.NASA_DONKI_BASE +
+      var url = CONFIG.SOLAR_FLARES_URL +
         '?startDate=' + formatDateISO(start) +
-        '&endDate=' + formatDateISO(end) +
-        '&api_key=' + CONFIG.NASA_API_KEY;
+        '&endDate=' + formatDateISO(end);
       return fetchJSON(url).then(function(data) {
         if (!Array.isArray(data)) return [];
         data.sort(function(a, b) {

@@ -1,0 +1,28 @@
+{
+  "name": "health-weather-metrics",
+  "version": "1.0.0",
+  "description": "A dashboard tracking environmental and astronomical metrics that may impact health and well-being",
+  "main": "index.html",
+  "scripts": {
+    "dev": "netlify dev",
+    "deploy": "netlify deploy --prod"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/health-weather-metrics.git"
+  },
+  "keywords": [
+    "health",
+    "weather",
+    "barometric-pressure",
+    "moon-phase",
+    "solar-flares",
+    "astrology",
+    "dashboard"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  }
+}

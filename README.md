@@ -30,24 +30,42 @@ A beautiful, real-time dashboard that tracks environmental and astronomical metr
 
 ## Quick Start
 
-### Option 1: Direct Use
-Simply open `index.html` in your web browser. No installation required!
+### Deployment on Netlify (Recommended)
 
-### Option 2: Local Server
-For better performance and testing:
+This app uses Netlify Functions to securely manage API keys. To deploy:
+
+1. **Get a NASA API Key**
+   - Visit [NASA API Portal](https://api.nasa.gov/)
+   - Sign up for a free API key
+
+2. **Deploy to Netlify**
+   - Connect your GitHub repository to Netlify
+   - Go to Site settings → Environment variables
+   - Add: `NASA_API_KEY` = your NASA API key
+   - Deploy!
+
+3. **Local Development**
+   ```bash
+   # Install Netlify CLI
+   npm install -g netlify-cli
+
+   # Create .env file (copy from .env.example)
+   cp .env.example .env
+   # Edit .env and add your NASA_API_KEY
+
+   # Run locally with Netlify Dev
+   netlify dev
+   ```
+
+### Option 2: Static File Server (Limited)
+For testing without API functionality:
 
 ```bash
 # Python 3
 python -m http.server 8000
-
-# Python 2
-python -m SimpleHTTPServer 8000
-
-# Node.js (if you have http-server installed)
-npx http-server
 ```
 
-Then visit `http://localhost:8000` in your browser.
+**Note**: Without Netlify Functions, the solar flare data will not work due to API key requirements.
 
 ## Usage
 
@@ -59,6 +77,7 @@ Then visit `http://localhost:8000` in your browser.
 ## Technologies
 
 - **Vanilla JavaScript (ES5)** - No frameworks, maximum compatibility
+- **Netlify Functions** - Serverless API proxies for secure key management
 - **Chart.js** - Interactive pressure visualization
 - **Astronomy Engine** - Precise astronomical calculations
 - **CSS Grid & Flexbox** - Responsive layout
@@ -68,20 +87,24 @@ Then visit `http://localhost:8000` in your browser.
 
 | Service | Purpose | API Key Required |
 |---------|---------|------------------|
-| [Open-Meteo](https://open-meteo.com/) | Barometric pressure & geocoding | No |
-| [NASA DONKI](https://api.nasa.gov/) | Solar flare data | Optional (uses DEMO_KEY) |
+| [Open-Meteo](https://open-meteo.com/) | Barometric pressure, temperature & geocoding | No |
+| [NASA DONKI](https://api.nasa.gov/) | Solar flare data | **Yes - Required** |
 | [ipapi.co](https://ipapi.co/) | IP-based geolocation | No |
 
-### Getting Your Own NASA API Key
+### API Key Setup
 
-While the app uses NASA's `DEMO_KEY`, you can get your own free API key for higher rate limits:
+**NASA API Key is required** for solar flare data. The `DEMO_KEY` has very low rate limits (429 errors).
 
-1. Visit [NASA API Portal](https://api.nasa.gov/)
-2. Sign up for a free API key
-3. Open `index.html` and replace `DEMO_KEY` on line 549:
-   ```javascript
-   NASA_API_KEY: 'your-api-key-here',
-   ```
+#### For Netlify Deployment:
+1. Get your free API key at [NASA API Portal](https://api.nasa.gov/)
+2. In Netlify Dashboard: **Site settings → Environment variables**
+3. Add variable: `NASA_API_KEY` = `your-key-here`
+4. Redeploy your site
+
+#### For Local Development:
+1. Copy `.env.example` to `.env`
+2. Add your NASA API key to `.env`
+3. Run with `netlify dev` (requires Netlify CLI)
 
 ## Configuration
 
@@ -149,8 +172,9 @@ Solar flares and geomagnetic storms may influence:
 
 - All data processing happens in your browser
 - Location preferences stored locally (LocalStorage only)
-- No user data is collected or transmitted to any server
-- External API calls are made directly from your browser
+- No user data is collected or stored on servers
+- API calls are proxied through Netlify Functions for secure key management
+- No tracking, analytics, or data retention
 
 ## Development
 
@@ -169,4 +193,16 @@ This project is open source and available for personal and educational use.
 
 ---
 
-**Enjoying this dashboard?** Consider getting a free NASA API key to support continued access to solar flare data.
+## Troubleshooting
+
+**Solar flares showing errors or "429" status?**
+- You need to set up your NASA API key in Netlify environment variables
+- See "API Key Setup" section above
+
+**Functions not working locally?**
+- Make sure you're using `netlify dev` instead of a regular HTTP server
+- Check that `.env` file exists with your NASA_API_KEY
+
+**Still having issues?**
+- Check the browser console for detailed error messages
+- Verify your NASA API key is valid at [NASA API Portal](https://api.nasa.gov/)
