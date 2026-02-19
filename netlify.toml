@@ -2,6 +2,9 @@
   # Publish directory (where your index.html is)
   publish = "."
 
+  # Build command to generate build info
+  command = "node generate-build-info.js"
+
   # Functions directory
   functions = "netlify/functions"
 

@@ -4,6 +4,7 @@
   "description": "A dashboard tracking environmental and astronomical metrics that may impact health and well-being",
   "main": "index.html",
   "scripts": {
+    "build": "node generate-build-info.js",
     "dev": "netlify dev",
     "deploy": "netlify deploy --prod"
   },

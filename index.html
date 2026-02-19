@@ -729,6 +729,7 @@
 
   <footer class="footer">
     <span>Last updated: <span id="last-updated">--</span></span>
+    <span id="build-info">Build: --</span>
     <button id="refresh-btn">Refresh</button>
   </footer>
 
@@ -1905,6 +1906,23 @@
       if (prefs) {
         autoDetectToggle.checked = !!prefs.autoDetect;
       }
+    })();
+
+    // Load build information
+    (function loadBuildInfo() {
+      fetch('/build-info.json')
+        .then(function(response) {
+          if (!response.ok) throw new Error('Build info not found');
+          return response.json();
+        })
+        .then(function(buildInfo) {
+          var buildText = 'Build: ' + buildInfo.deployId + ' \u2022 ' + buildInfo.context;
+          document.getElementById('build-info').textContent = buildText;
+        })
+        .catch(function() {
+          // Running locally without build info - show dev indicator
+          document.getElementById('build-info').textContent = 'Build: Dev';
+        });
     })();
 
     // Boot
