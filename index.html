@@ -1916,7 +1916,11 @@
           return response.json();
         })
         .then(function(buildInfo) {
-          var buildText = 'Build: ' + buildInfo.deployId + ' \u2022 ' + buildInfo.context;
+          // Only show context if not Production
+          var buildText = 'Build: ' + buildInfo.deployId;
+          if (buildInfo.context !== 'Production') {
+            buildText += ' \u2022 ' + buildInfo.context;
+          }
           document.getElementById('build-info').textContent = buildText;
         })
         .catch(function() {
