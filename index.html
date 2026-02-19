@@ -757,7 +757,12 @@
       STORAGE_KEY: 'hwm_location_prefs',
       ASTRO_LOOKFORWARD_DAYS: 180,
       RETROGRADE_CHECK_DAYS: 7,
-      PLANETS_TO_CHECK: ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune']
+      PLANETS_TO_CHECK: ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'],
+      // Auto-refresh intervals (in milliseconds)
+      REFRESH_INTERVAL_TEMP: 3600000,      // 1 hour
+      REFRESH_INTERVAL_PRESSURE: 86400000, // 24 hours
+      REFRESH_INTERVAL_SOLAR: 21600000,    // 6 hours
+      REFRESH_INTERVAL_ASTRO: 86400000     // 24 hours (moon + astro events)
     };
 
     var ZODIAC = [
@@ -779,6 +784,13 @@
     // STATE
     // ==========================================
     var pressureChart = null;
+    var currentLocation = null;
+    var refreshIntervals = {
+      temperature: null,
+      pressure: null,
+      solar: null,
+      astro: null
+    };
 
     // ==========================================
     // DOM REFERENCES
@@ -949,41 +961,51 @@
     }
 
     // ==========================================
-    // WEATHER DATA (Consolidated)
+    // WEATHER DATA
     // ==========================================
-    function fetchWeatherData(lat, lon) {
-      // Single API call for pressure, temperature, and humidity data
+    function fetchPressure(lat, lon) {
       var url = CONFIG.WEATHER_URL +
         '?latitude=' + lat +
         '&longitude=' + lon +
-        '&hourly=surface_pressure,temperature_2m,apparent_temperature,relative_humidity_2m' +
+        '&hourly=surface_pressure' +
+        '&forecast_days=' + CONFIG.FORECAST_DAYS +
+        '&past_days=' + CONFIG.PAST_DAYS;
+
+      return fetchJSON(url).then(function(data) {
+        var times = [];
+        var pressures = [];
+        for (var i = 0; i < data.hourly.time.length; i++) {
+          if (data.hourly.surface_pressure[i] != null) {
+            times.push(data.hourly.time[i]);
+            pressures.push(data.hourly.surface_pressure[i]);
+          }
+        }
+        return { times: times, pressures: pressures };
+      });
+    }
+
+    function fetchTemperature(lat, lon) {
+      var url = CONFIG.WEATHER_URL +
+        '?latitude=' + lat +
+        '&longitude=' + lon +
+        '&hourly=temperature_2m,apparent_temperature,relative_humidity_2m' +
         '&daily=temperature_2m_max,temperature_2m_min' +
         '&temperature_unit=fahrenheit' +
         '&forecast_days=' + CONFIG.FORECAST_DAYS +
         '&past_days=' + CONFIG.PAST_DAYS;
 
       return fetchJSON(url).then(function(data) {
-        // Extract pressure data
-        var pressureTimes = [];
-        var pressures = [];
-        for (var i = 0; i < data.hourly.time.length; i++) {
-          if (data.hourly.surface_pressure[i] != null) {
-            pressureTimes.push(data.hourly.time[i]);
-            pressures.push(data.hourly.surface_pressure[i]);
-          }
-        }
-
-        // Extract temperature data
-        var tempTimes = [];
+        var times = [];
         var temps = [];
         var feelsLike = [];
         var humidity = [];
-        for (var j = 0; j < data.hourly.time.length; j++) {
-          if (data.hourly.temperature_2m[j] != null) {
-            tempTimes.push(data.hourly.time[j]);
-            temps.push(data.hourly.temperature_2m[j]);
-            feelsLike.push(data.hourly.apparent_temperature[j]);
-            humidity.push(data.hourly.relative_humidity_2m[j]);
+
+        for (var i = 0; i < data.hourly.time.length; i++) {
+          if (data.hourly.temperature_2m[i] != null) {
+            times.push(data.hourly.time[i]);
+            temps.push(data.hourly.temperature_2m[i]);
+            feelsLike.push(data.hourly.apparent_temperature[i]);
+            humidity.push(data.hourly.relative_humidity_2m[i]);
           }
         }
 
@@ -991,18 +1013,12 @@
         var todayMax = data.daily.temperature_2m_max[data.daily.temperature_2m_max.length - 1];
 
         return {
-          pressure: {
-            times: pressureTimes,
-            pressures: pressures
-          },
-          temperature: {
-            times: tempTimes,
-            temps: temps,
-            feelsLike: feelsLike,
-            humidity: humidity,
-            todayMin: todayMin,
-            todayMax: todayMax
-          }
+          times: times,
+          temps: temps,
+          feelsLike: feelsLike,
+          humidity: humidity,
+          todayMin: todayMin,
+          todayMax: todayMax
         };
       });
     }
@@ -1690,7 +1706,9 @@
         prefs.manual = loc;
         savePrefs(prefs);
 
-        reloadWeatherData(loc);
+        currentLocation = loc;
+        reloadPressure();
+        reloadTemperature();
       });
     }
 
@@ -1721,7 +1739,9 @@
           closeEditor();
           prefs.manual = loc;
           savePrefs(prefs);
-          reloadWeatherData(loc);
+          currentLocation = loc;
+        reloadPressure();
+        reloadTemperature();
         });
       }
     });
@@ -1729,22 +1749,88 @@
     // ==========================================
     // RELOAD HELPERS
     // ==========================================
-    function reloadWeatherData(loc) {
+    function reloadPressure() {
+      if (!currentLocation) return;
       setLoading('card-pressure');
-      setLoading('card-temp');
-      fetchWeatherData(loc.lat, loc.lon)
-        .then(function(weatherData) {
-          renderPressure(weatherData.pressure);
-          renderTemperature(weatherData.temperature);
-        })
+      fetchPressure(currentLocation.lat, currentLocation.lon)
+        .then(renderPressure)
         .catch(function() {
-          showError('card-pressure', 'Failed to load weather data.');
-          showError('card-temp', 'Failed to load weather data.');
+          showError('card-pressure', 'Failed to load pressure data.');
         })
-        .then(function() {
-          document.getElementById('last-updated').textContent =
-            new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-        });
+        .then(updateTimestamp);
+    }
+
+    function reloadTemperature() {
+      if (!currentLocation) return;
+      setLoading('card-temp');
+      fetchTemperature(currentLocation.lat, currentLocation.lon)
+        .then(renderTemperature)
+        .catch(function() {
+          showError('card-temp', 'Failed to load temperature data.');
+        })
+        .then(updateTimestamp);
+    }
+
+    function reloadSolar() {
+      setLoading('card-solar');
+      fetchSolarFlares()
+        .then(renderSolar)
+        .catch(function() {
+          showError('card-solar', 'Failed to load solar flare data.');
+        })
+        .then(updateTimestamp);
+    }
+
+    function reloadAstro() {
+      setLoading('card-moon');
+      setLoading('card-astro');
+      try {
+        renderMoon(calculateMoon());
+        var astroEvents = calculateAstroEvents();
+        renderAstroEvents(astroEvents);
+      } catch (e) {
+        showError('card-moon', 'Could not calculate moon data.');
+        showError('card-astro', 'Could not calculate astrological events.');
+      }
+      updateTimestamp();
+    }
+
+    function updateTimestamp() {
+      document.getElementById('last-updated').textContent =
+        new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+
+    // ==========================================
+    // AUTO-REFRESH SETUP
+    // ==========================================
+    function clearAllRefreshIntervals() {
+      if (refreshIntervals.temperature) clearInterval(refreshIntervals.temperature);
+      if (refreshIntervals.pressure) clearInterval(refreshIntervals.pressure);
+      if (refreshIntervals.solar) clearInterval(refreshIntervals.solar);
+      if (refreshIntervals.astro) clearInterval(refreshIntervals.astro);
+      refreshIntervals.temperature = null;
+      refreshIntervals.pressure = null;
+      refreshIntervals.solar = null;
+      refreshIntervals.astro = null;
+    }
+
+    function setupAutoRefresh() {
+      // Clear any existing intervals
+      clearAllRefreshIntervals();
+
+      // Temperature & Humidity: every hour
+      refreshIntervals.temperature = setInterval(reloadTemperature, CONFIG.REFRESH_INTERVAL_TEMP);
+
+      // Pressure: every 24 hours
+      refreshIntervals.pressure = setInterval(reloadPressure, CONFIG.REFRESH_INTERVAL_PRESSURE);
+
+      // Solar Flares: every 6 hours
+      refreshIntervals.solar = setInterval(reloadSolar, CONFIG.REFRESH_INTERVAL_SOLAR);
+
+      // Moon & Astrological Events: every 24 hours
+      refreshIntervals.astro = setInterval(reloadAstro, CONFIG.REFRESH_INTERVAL_ASTRO);
+
+      console.log('Auto-refresh enabled: Temp (1h), Pressure (24h), Solar (6h), Astro (24h)');
     }
 
     // ==========================================
@@ -1779,26 +1865,32 @@
           showError('card-solar', 'Failed to load solar flare data.');
         });
 
-      // Location + weather data (consolidated)
+      // Location + weather data
       resolveLocationForLoad().then(function(loc) {
         updateLocationLabel(loc);
+        currentLocation = loc; // Store for auto-refresh
 
         var prefs = loadPrefs() || {};
         prefs.autoDetect = autoDetectToggle.checked;
         prefs.manual = loc;
         savePrefs(prefs);
 
-        // Fetch all weather data in a single call
-        return fetchWeatherData(loc.lat, loc.lon).then(function(weatherData) {
-          renderPressure(weatherData.pressure);
-          renderTemperature(weatherData.temperature);
-        });
+        // Fetch pressure and temperature separately
+        return Promise.all([
+          fetchPressure(loc.lat, loc.lon).then(renderPressure).catch(function() {
+            showError('card-pressure', 'Failed to load pressure data.');
+          }),
+          fetchTemperature(loc.lat, loc.lon).then(renderTemperature).catch(function() {
+            showError('card-temp', 'Failed to load temperature data.');
+          })
+        ]);
       }).catch(function() {
         showError('card-pressure', 'Failed to load weather data.');
         showError('card-temp', 'Failed to load weather data.');
       }).then(function() {
-        document.getElementById('last-updated').textContent =
-          new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        updateTimestamp();
+        // Set up auto-refresh after initial load
+        setupAutoRefresh();
       });
     }
 
